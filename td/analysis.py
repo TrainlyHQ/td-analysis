@@ -20,8 +20,15 @@ def prepare_data(df):
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
     return df.sort_values('timestamp')
 
-def merge_dataframes(cclass_df, sclass_df, direction='forward', tolerance_seconds=5):
-    """Merges C-Class and S-Class DataFrames using merge_asof."""
+def merge_dataframes(cclass_df, sclass_df, direction='nearest', tolerance_seconds=10):
+    """Merges C-Class and S-Class DataFrames using merge_asof.
+    
+    Args:
+        cclass_df: DataFrame with C-Class events
+        sclass_df: DataFrame with S-Class events  
+        direction: Merge direction - 'nearest' (default), 'forward', or 'backward'
+        tolerance_seconds: Maximum time difference to consider a match (default: 10)
+    """
     merged_df = pd.merge_asof(
         cclass_df,
         sclass_df,
@@ -33,16 +40,27 @@ def merge_dataframes(cclass_df, sclass_df, direction='forward', tolerance_second
     merged_df.dropna(subset=['address'], inplace=True)
     return merged_df
 
-def create_direct_mapping(merged_df, target_feature):
-    """Creates a direct mapping from (address, bit_index) to target feature."""
+def create_direct_mapping(merged_df, target_feature, min_samples=3):
+    """Creates a direct mapping from (address, bit_index) to target feature.
+    
+    Args:
+        merged_df: DataFrame with merged data
+        target_feature: The feature to predict (e.g., 'from', 'to', 'route')
+        min_samples: Minimum number of samples required for a rule (default: 3)
+    """
     # Group by address and bit_index, find the most common target for each combination
     grouped = merged_df.groupby(['address', 'bit_index'])[target_feature].agg(
         lambda x: x.mode()[0] if not x.mode().empty else x.iloc[0]
     ).reset_index()
     grouped['count'] = merged_df.groupby(['address', 'bit_index']).size().values
     
+    # Filter out rules with too few samples (likely noise)
+    grouped = grouped[grouped['count'] >= min_samples]
+    
     # Sort by address and bit_index for better readability
     grouped = grouped.sort_values(['address', 'bit_index'])
+    
+    print(f"Pruned rules with < {min_samples} samples. Remaining: {len(grouped)} rules")
     
     return grouped
 
@@ -152,9 +170,24 @@ def get_tree_rules(tree, feature_names, class_names):
     recurse(0, [])
     return rules_text
 
-def run_analysis(cclass_path, sclass_path, output_rules_path, cclass_type, target_feature, max_depth=10):
-    """Main orchestration function for running a complete analysis."""
+def run_analysis(cclass_path, sclass_path, output_rules_path, cclass_type, target_feature, 
+                 max_depth=10, min_samples=3, merge_direction='nearest', merge_tolerance=10):
+    """Main orchestration function for running a complete analysis.
+    
+    Args:
+        cclass_path: Path to C-Class Avro file
+        sclass_path: Path to S-Class Avro file
+        output_rules_path: Path to write output rules
+        cclass_type: Type of C-Class event to filter by (e.g., 'step', 'interpose')
+        target_feature: Feature to predict (e.g., 'from', 'to', 'route')
+        max_depth: Maximum depth for decision tree (not used with direct mapping)
+        min_samples: Minimum number of samples required for a rule (default: 3)
+        merge_direction: Direction for merge_asof - 'nearest', 'forward', or 'backward' (default: 'nearest')
+        merge_tolerance: Maximum time difference in seconds for merge (default: 10)
+    """
     print(f"--- Running analysis for C-Class type: '{cclass_type}' to predict '{target_feature}' ---")
+    print(f"--- Merge: direction='{merge_direction}', tolerance={merge_tolerance}s ---")
+    print(f"--- Minimum samples per rule: {min_samples} ---")
 
     # 1. Load and prepare data
     cclass_df, sclass_df = load_avro_data(cclass_path, sclass_path)
@@ -166,7 +199,9 @@ def run_analysis(cclass_path, sclass_path, output_rules_path, cclass_type, targe
 
     # 2. Filter and merge
     cclass_filtered_df = cclass_df[cclass_df['type'] == cclass_type].copy()
-    merged_df = merge_dataframes(cclass_filtered_df, sclass_df)
+    merged_df = merge_dataframes(cclass_filtered_df, sclass_df, 
+                                 direction=merge_direction, 
+                                 tolerance_seconds=merge_tolerance)
     
     # Handle special case for 'route' which combines 'from' and 'to'
     if target_feature == 'route':
@@ -180,7 +215,7 @@ def run_analysis(cclass_path, sclass_path, output_rules_path, cclass_type, targe
         return
 
     # 3. Create direct mapping from (address, bit_index) to target
-    mapping_df = create_direct_mapping(merged_df, target_feature)
+    mapping_df = create_direct_mapping(merged_df, target_feature, min_samples=min_samples)
     
     print(f"Found {len(mapping_df)} unique (address, bit_index) combinations")
     

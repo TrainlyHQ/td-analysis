@@ -1,18 +1,18 @@
 # Train Describer Analysis
 
-A Python tool for collecting and analyzing UK railway Train Describer (TD) data from Network Rail's STOMP feed. This project listens to real-time train movements (C-Class messages) and signaling state changes (S-Class messages), then uses machine learning to decode the relationship between signal bits and train routes/berths.
+A Python tool for collecting and analyzing UK railway Train Describer (TD) data from Network Rail's STOMP feed. This project listens to the TD feed for a specific area and then analyses changes to spot patterns between movements and bit flips.
 
 ## Overview
 
-The Train Describer system is used by Network Rail to track train movements across the UK railway network. This project:
+The Train Describer system is used to track train movements at a low level across the UK railway network. This project:
 
 1. **Collects Data**: Connects to Network Rail's live data feed via STOMP protocol to capture:
    - **C-Class Messages**: Train movements (steps, cancellations, interposes)
    - **S-Class Messages**: Signal/route bit state changes
 
-2. **Stores Data**: Saves messages in efficient Apache Avro format for analysis
+2. **Stores Data**: Saves logs in the Apache Avro format for analysis
 
-3. **Analyzes Patterns**: Uses Decision Tree machine learning to identify:
+3. **Analyzes Patterns**: Uses statistical algorithms to identify:
    - Which signal bits correspond to specific berths (locations)
    - Which bits represent route selections
    - Timing relationships between bit changes and train movements

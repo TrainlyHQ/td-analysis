@@ -1,0 +1,37 @@
+{
+  "type": "record",
+  "name": "CClassMessage",
+  "namespace": "uk.co.trainly",
+  "fields": [
+    {
+      "name": "timestamp",
+      "type": { "type": "long", "logicalType": "timestamp-millis" }
+    },
+    {
+      "name": "area_id",
+      "type": "string"
+    },
+    {
+      "name": "type",
+      "type": {
+        "type": "enum",
+        "name": "MessageType",
+        "symbols": ["step", "cancel", "interpose"]
+      }
+    },
+    {
+      "name": "from",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "to",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "train_id",
+      "type": "string"
+    }
+  ]
+}

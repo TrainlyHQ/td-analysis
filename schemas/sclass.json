@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "name": "SClassMessage",
+  "namespace": "uk.co.trainly",
+  "fields": [
+    {
+      "name": "timestamp",
+      "type": { "type": "long", "logicalType": "timestamp-millis" }
+    },
+    {
+      "name": "area_id",
+      "type": "string"
+    },
+    {
+      "name": "address",
+      "type": "string"
+    },
+    {
+      "name": "bit_index",
+      "type": "int"
+    },
+    {
+      "name": "value",
+      "type": "int"
+    }
+  ]
+}
